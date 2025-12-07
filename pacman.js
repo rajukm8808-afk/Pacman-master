@@ -7,6 +7,7 @@ const boardWidth = columnCount*tileSize;
 const boardHeight = rowCount*tileSize;
 let context;
 
+// Images
 let blueGhostImage;
 let orangeGhostImage;
 let pinkGhostImage;
@@ -17,8 +18,8 @@ let pacmanLeftImage;
 let pacmanRightImage;
 let wallImage;
 
-//X = wall, O = skip, P = pac man, ' ' = food
-//Ghosts: b = blue, o = orange, p = pink, r = red
+// X = wall, O = skip, P = pac man, ' ' = food
+// Ghosts: b = blue, o = orange, p = pink, r = red
 const tileMap = [
     "XXXXXXXXXXXXXXXXXXX",
     "X        X        X",
@@ -61,14 +62,14 @@ window.onload = function() {
 
     loadImages();
     loadMap();
-    // console.log(walls.size)
-    // console.log(foods.size)
-    // console.log(ghosts.size)
+    
+    // Set initial random direction for ghosts
     for (let ghost of ghosts.values()) {
         const newDirection = directions[Math.floor(Math.random()*4)];
         ghost.updateDirection(newDirection);
     }
-    update();
+    
+    update(); // Start the game loop
     document.addEventListener("keyup", movePacman);
 }
 
@@ -132,7 +133,8 @@ function loadMap() {
                 pacman = new Block(pacmanRightImage, x, y, tileSize, tileSize);
             }
             else if (tileMapChar == ' ') { //empty is food
-                const food = new Block(null, x + 14, y + 14, 4, 4);
+                // Food is a small dot centered in the tile
+                const food = new Block(null, x + 14, y + 14, 4, 4); 
                 foods.add(food);
             }
         }
@@ -145,26 +147,32 @@ function update() {
     }
     move();
     draw();
-    setTimeout(update, 50); //1000/50 = 20 FPS
+    setTimeout(update, 50); // 20 FPS (1000ms/50ms = 20)
 }
 
 function draw() {
     context.clearRect(0, 0, board.width, board.height);
+    
+    // Draw Pacman
     context.drawImage(pacman.image, pacman.x, pacman.y, pacman.width, pacman.height);
+    
+    // Draw Ghosts
     for (let ghost of ghosts.values()) {
         context.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height);
     }
     
+    // Draw Walls
     for (let wall of walls.values()) {
         context.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height);
     }
 
+    // Draw Food
     context.fillStyle = "white";
     for (let food of foods.values()) {
         context.fillRect(food.x, food.y, food.width, food.height);
     }
 
-    //score
+    // Draw Score and Lives
     context.fillStyle = "white";
     context.font="14px sans-serif";
     if (gameOver) {
@@ -176,20 +184,23 @@ function draw() {
 }
 
 function move() {
+    // 1. Pacman Movement
     pacman.x += pacman.velocityX;
     pacman.y += pacman.velocityY;
 
-    //check wall collisions
+    // Check wall collisions for Pacman
     for (let wall of walls.values()) {
         if (collision(pacman, wall)) {
+            // Revert the last move
             pacman.x -= pacman.velocityX;
             pacman.y -= pacman.velocityY;
             break;
         }
     }
 
-    //check ghosts collision
+    // 2. Ghost Movement and Collisions
     for (let ghost of ghosts.values()) {
+        // Check Pacman collision with Ghost
         if (collision(ghost, pacman)) {
             lives -= 1;
             if (lives == 0) {
@@ -199,23 +210,31 @@ function move() {
             resetPositions();
         }
 
+        // Special rule to force ghosts out of the center pen (row 9)
         if (ghost.y == tileSize*9 && ghost.direction != 'U' && ghost.direction != 'D') {
             ghost.updateDirection('U');
         }
 
+        // Apply ghost movement
         ghost.x += ghost.velocityX;
         ghost.y += ghost.velocityY;
+
+        // Check wall collisions for Ghost
         for (let wall of walls.values()) {
+            // Also check board boundaries
             if (collision(ghost, wall) || ghost.x <= 0 || ghost.x + ghost.width >= boardWidth) {
+                // Revert the last move
                 ghost.x -= ghost.velocityX;
                 ghost.y -= ghost.velocityY;
+                
+                // Change to a new random direction
                 const newDirection = directions[Math.floor(Math.random()*4)];
                 ghost.updateDirection(newDirection);
             }
         }
     }
 
-    //check food collision
+    // 3. Check food collision
     let foodEaten = null;
     for (let food of foods.values()) {
         if (collision(pacman, food)) {
@@ -224,9 +243,9 @@ function move() {
             break;
         }
     }
-    foods.delete(foodEaten);
+    foods.delete(foodEaten); // Remove the eaten food
 
-    //next level
+    // 4. Next Level Check
     if (foods.size == 0) {
         loadMap();
         resetPositions();
@@ -234,6 +253,7 @@ function move() {
 }
 
 function movePacman(e) {
+    // Game Over: Restart Logic
     if (gameOver) {
         loadMap();
         resetPositions();
@@ -244,6 +264,7 @@ function movePacman(e) {
         return;
     }
 
+    // Change direction based on key press
     if (e.code == "ArrowUp" || e.code == "KeyW") {
         pacman.updateDirection('U');
     }
@@ -257,7 +278,7 @@ function movePacman(e) {
         pacman.updateDirection('R');
     }
 
-    //update pacman images
+    // Update pacman images based on current direction
     if (pacman.direction == 'U') {
         pacman.image = pacmanUpImage;
     }
@@ -273,11 +294,12 @@ function movePacman(e) {
     
 }
 
+// AABB Collision Detection
 function collision(a, b) {
-    return a.x < b.x + b.width &&   //a's top left corner doesn't reach b's top right corner
-           a.x + a.width > b.x &&   //a's top right corner passes b's top left corner
-           a.y < b.y + b.height &&  //a's top left corner doesn't reach b's bottom left corner
-           a.y + a.height > b.y;    //a's bottom left corner passes b's top left corner
+    return a.x < b.x + b.width &&   // a's left edge is to the left of b's right edge
+           a.x + a.width > b.x &&   // a's right edge is to the right of b's left edge
+           a.y < b.y + b.height &&  // a's top edge is above b's bottom edge
+           a.y + a.height > b.y;    // a's bottom edge is below b's top edge
 }
 
 function resetPositions() {
@@ -286,11 +308,13 @@ function resetPositions() {
     pacman.velocityY = 0;
     for (let ghost of ghosts.values()) {
         ghost.reset();
+        // Give ghosts a new random direction after reset
         const newDirection = directions[Math.floor(Math.random()*4)];
         ghost.updateDirection(newDirection);
     }
 }
 
+// Base class for all moving and static objects
 class Block {
     constructor(image, x, y, width, height) {
         this.image = image;
@@ -299,8 +323,8 @@ class Block {
         this.width = width;
         this.height = height;
 
-        this.startX = x;
-        this.startY = y;
+        this.startX = x; // original starting x
+        this.startY = y; // original starting y
 
         this.direction = 'R';
         this.velocityX = 0;
@@ -311,35 +335,42 @@ class Block {
         const prevDirection = this.direction;
         this.direction = direction;
         this.updateVelocity();
+        
+        // Check if the new direction causes an immediate wall collision
         this.x += this.velocityX;
         this.y += this.velocityY;
         
         for (let wall of walls.values()) {
             if (collision(this, wall)) {
+                // Collision detected: revert position, revert direction, and update velocity back
                 this.x -= this.velocityX;
                 this.y -= this.velocityY;
                 this.direction = prevDirection;
-                this.updateVelocity();
-                return;
+                this.updateVelocity(); 
+                return; // Stop processing, move is invalid
             }
         }
+        // If no collision, the temporary move is kept and will be applied in the next 'move()' call
     }
 
     updateVelocity() {
+        // Speed is set to move 1 tile in 4 frames
+        const speed = tileSize/4; 
+
         if (this.direction == 'U') {
             this.velocityX = 0;
-            this.velocityY = -tileSize/4;
+            this.velocityY = -speed;
         }
         else if (this.direction == 'D') {
             this.velocityX = 0;
-            this.velocityY = tileSize/4;
+            this.velocityY = speed;
         }
         else if (this.direction == 'L') {
-            this.velocityX = -tileSize/4;
+            this.velocityX = -speed;
             this.velocityY = 0;
         }
         else if (this.direction == 'R') {
-            this.velocityX = tileSize/4;
+            this.velocityX = speed;
             this.velocityY = 0;
         }
     }
